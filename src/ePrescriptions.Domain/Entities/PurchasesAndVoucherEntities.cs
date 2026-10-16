@@ -18,6 +18,10 @@ namespace ePrescriptions.Domain.Entities
         public long PaidPiastres { get; set; }
         public long RemainingPiastres { get; set; }
 
+        public decimal TotalPounds => TotalPiastres / 100m;
+        public decimal PaidPounds => PaidPiastres / 100m;
+        public decimal RemainingPounds => RemainingPiastres / 100m;
+
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 

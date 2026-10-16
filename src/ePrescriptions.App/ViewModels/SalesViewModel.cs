@@ -713,8 +713,54 @@ namespace ePrescriptions.App.ViewModels
         public IRelayCommand ToggleReturnModeCommand { get; }
         public IRelayCommand OpenCashDrawerCommand { get; }
         public IRelayCommand<SalesItemRow> RemoveItemCommand { get; }
+        public IRelayCommand RemoveSelectedItemCommand { get; }
         public IRelayCommand<Item> AddItemToCartCommand { get; }
         public IRelayCommand BarcodeEnterCommand { get; }
+        public IRelayCommand OpenItemSearchCommand { get; }
+        public IRelayCommand CloseSearchPopupCommand { get; }
+        public IRelayCommand<Item> SelectSearchResultCommand { get; }
+        public IRelayCommand PreviousInvoiceCommand { get; }
+        public IRelayCommand NextInvoiceCommand { get; }
+        public IRelayCommand OpenInvoiceHistoryCommand { get; }
+        public IRelayCommand CloseInvoiceHistoryCommand { get; }
+        public IRelayCommand<Invoice> LoadSpecificInvoiceCommand { get; }
+
+        private SalesItemRow? _selectedCartItem;
+        public SalesItemRow? SelectedCartItem
+        {
+            get => _selectedCartItem;
+            set => SetProperty(ref _selectedCartItem, value);
+        }
+
+        private bool _isSearchPopupOpen;
+        public bool IsSearchPopupOpen
+        {
+            get => _isSearchPopupOpen;
+            set => SetProperty(ref _isSearchPopupOpen, value);
+        }
+
+        private bool _isInvoiceHistoryOpen;
+        public bool IsInvoiceHistoryOpen
+        {
+            get => _isInvoiceHistoryOpen;
+            set => SetProperty(ref _isInvoiceHistoryOpen, value);
+        }
+
+        private bool _isViewingHistoricalInvoice;
+        public bool IsViewingHistoricalInvoice
+        {
+            get => _isViewingHistoricalInvoice;
+            set => SetProperty(ref _isViewingHistoricalInvoice, value);
+        }
+
+        private string _historicalInvoiceStatusText = string.Empty;
+        public string HistoricalInvoiceStatusText
+        {
+            get => _historicalInvoiceStatusText;
+            set => SetProperty(ref _historicalInvoiceStatusText, value);
+        }
+
+        public ObservableCollection<Invoice> RecentInvoices { get; } = new();
 
         public SalesViewModel(
             ItemRepository itemRepository,
@@ -749,6 +795,7 @@ namespace ePrescriptions.App.ViewModels
             ToggleReturnModeCommand = new RelayCommand(ToggleReturnMode);
             OpenCashDrawerCommand = new RelayCommand(OpenDrawer);
             RemoveItemCommand = new RelayCommand<SalesItemRow>(RemoveItem);
+            RemoveSelectedItemCommand = new RelayCommand(RemoveSelectedItem);
             AddItemToCartCommand = new RelayCommand<Item>(AddItem);
             BarcodeEnterCommand = new RelayCommand(HandleBarcodeEnter);
             LoadOriginalInvoiceCommand = new RelayCommand(LoadOriginalInvoice);
@@ -757,6 +804,22 @@ namespace ePrescriptions.App.ViewModels
             AddAlternativeToCartCommand = new RelayCommand<ItemAlternativeRow>(OnAddAlternativeToCart);
             CloseAlternativesCommand = new RelayCommand(() => IsAlternativesVisible = false);
             UndoLastSavedInvoiceCommand = new RelayCommand(UndoLastSavedInvoice);
+
+            OpenItemSearchCommand = new RelayCommand(OpenItemSearch);
+            CloseSearchPopupCommand = new RelayCommand(() => IsSearchPopupOpen = false);
+            SelectSearchResultCommand = new RelayCommand<Item>(SelectSearchResult);
+            PreviousInvoiceCommand = new RelayCommand(LoadPreviousInvoice);
+            NextInvoiceCommand = new RelayCommand(LoadNextInvoice);
+            OpenInvoiceHistoryCommand = new RelayCommand(OpenInvoiceHistory);
+            CloseInvoiceHistoryCommand = new RelayCommand(() => IsInvoiceHistoryOpen = false);
+            LoadSpecificInvoiceCommand = new RelayCommand<Invoice>(inv =>
+            {
+                if (inv != null)
+                {
+                    LoadInvoice(inv);
+                    IsInvoiceHistoryOpen = false;
+                }
+            });
 
             LoadInitialData();
             StartNewInvoice();
@@ -800,6 +863,11 @@ namespace ePrescriptions.App.ViewModels
             OutOfStockItemName = string.Empty;
             OutOfStockActiveIngredient = string.Empty;
             PaidRiyals = 0;
+            IsViewingHistoricalInvoice = false;
+            HistoricalInvoiceStatusText = string.Empty;
+            IsSearchPopupOpen = false;
+            IsInvoiceHistoryOpen = false;
+            SelectedCartItem = null;
             RecalculateTotals();
             SetStatus("تم تجهيز فاتورة جديدة جاهزة للبيع", true);
         }
@@ -807,16 +875,142 @@ namespace ePrescriptions.App.ViewModels
         private void PerformSearch(string query)
         {
             SearchResults.Clear();
-            if (string.IsNullOrWhiteSpace(query) || query.Length < 2) return;
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                IsSearchPopupOpen = false;
+                return;
+            }
 
             try
             {
-                var list = _itemRepository.Search(query, 15);
+                var list = _itemRepository.Search(query.Trim(), 25);
                 foreach (var itm in list) SearchResults.Add(itm);
+                IsSearchPopupOpen = SearchResults.Count > 0;
             }
             catch (Exception ex)
             {
                 Logger.LogException(ex, "SalesViewModel.PerformSearch");
+            }
+        }
+
+        public void OpenItemSearch()
+        {
+            SearchResults.Clear();
+            string q = (SearchQuery ?? string.Empty).Trim();
+            try
+            {
+                var list = string.IsNullOrEmpty(q)
+                    ? _itemRepository.GetAllItems().Take(30).ToList()
+                    : _itemRepository.Search(q, 30);
+                if (list.Count == 0 && string.IsNullOrEmpty(q))
+                {
+                    list = _itemRepository.GetTopSellingItems(25);
+                }
+                foreach (var itm in list) SearchResults.Add(itm);
+                IsSearchPopupOpen = SearchResults.Count > 0;
+                if (SearchResults.Count == 0)
+                {
+                    SetStatus("لم يتم العثور على أي صنف مطابق للبحث", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex, "SalesViewModel.OpenItemSearch");
+            }
+        }
+
+        public void SelectSearchResult(Item? item)
+        {
+            if (item == null) return;
+            AddItem(item);
+            SearchQuery = string.Empty;
+            SearchResults.Clear();
+            IsSearchPopupOpen = false;
+        }
+
+        public void RemoveSelectedItem()
+        {
+            if (SelectedCartItem != null)
+            {
+                RemoveItem(SelectedCartItem);
+                SelectedCartItem = null;
+            }
+            else if (CartItems.Count > 0)
+            {
+                RemoveItem(CartItems[CartItems.Count - 1]);
+            }
+        }
+
+        public void LoadInvoice(Invoice invoice)
+        {
+            if (invoice == null) return;
+            Invoice full = (invoice.Items != null && invoice.Items.Count > 0)
+                ? invoice
+                : (_invoiceRepository.FindByNumber(invoice.InvoiceNumber) ?? invoice);
+
+            InvoiceNumber = full.InvoiceNumber;
+            CustomerName = string.IsNullOrWhiteSpace(full.CustomerName) ? "عميل نقدي" : full.CustomerName;
+            CustomerPhone = full.CustomerPhone ?? string.Empty;
+            CurrentInvoiceType = full.Type;
+            SelectedPaymentMethod = full.PaymentMethod;
+
+            CartItems.Clear();
+            foreach (var line in full.Items)
+            {
+                var baseItem = _itemRepository.GetById(line.ItemId);
+                CartItems.Add(SalesItemRow.FromHistoricalItem(line, baseItem));
+            }
+
+            PaidRiyals = Money.FromPiastres(full.PaidPiastres).ToPounds();
+            RecalculateTotals();
+            IsViewingHistoricalInvoice = true;
+            string statusStr = full.Status == InvoiceStatus.Cancelled ? "ملغاة" : (full.Type == InvoiceType.Return ? "مرتجع" : "مكتملة");
+            HistoricalInvoiceStatusText = $"فاتورة سابقة رقم [{full.InvoiceNumber}] | التاريخ: {DbDate.Display(full.Date)} | الحالة: {statusStr} | العميل: {CustomerName} | الإجمالي: {Money.FromPiastres(full.TotalPiastres).ToPounds():N2} ج.م";
+            SetStatus($"تم استعراض الفاتورة السابقة رقم {full.InvoiceNumber}", true);
+        }
+
+        public void LoadPreviousInvoice()
+        {
+            string? prevNum = _invoiceRepository.GetPreviousInvoiceNumber(InvoiceNumber);
+            if (!string.IsNullOrEmpty(prevNum))
+            {
+                var inv = _invoiceRepository.FindByNumber(prevNum);
+                if (inv != null)
+                {
+                    LoadInvoice(inv);
+                    return;
+                }
+            }
+            SetStatus("لا توجد فواتير سابقة قبل هذه الفاتورة", false);
+        }
+
+        public void LoadNextInvoice()
+        {
+            string? nextNum = _invoiceRepository.GetNextInvoiceNumber(InvoiceNumber);
+            if (!string.IsNullOrEmpty(nextNum))
+            {
+                var inv = _invoiceRepository.FindByNumber(nextNum);
+                if (inv != null)
+                {
+                    LoadInvoice(inv);
+                    return;
+                }
+            }
+            SetStatus("أنت في أحدث فاتورة مسجلة بالفعل", false);
+        }
+
+        public void OpenInvoiceHistory()
+        {
+            RecentInvoices.Clear();
+            try
+            {
+                var list = _invoiceRepository.GetRecentInvoices(40);
+                foreach (var inv in list) RecentInvoices.Add(inv);
+                IsInvoiceHistoryOpen = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex, "SalesViewModel.OpenInvoiceHistory");
             }
         }
 

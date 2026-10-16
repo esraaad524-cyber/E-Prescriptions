@@ -119,6 +119,7 @@ namespace ePrescriptions.App.Services
             PurchaseOrdersViewModel => "شاشة أوامر الشراء والتوريد",
             SupplierReturnsViewModel => "شاشة مرتجع وإتلاف البضائع",
             StocktakeViewModel => "شاشة الجرد السريع بالباركود",
+            OpeningStockViewModel => "شاشة رصيد أول المدة (بضاعة أول المدة)",
             PriceListImportViewModel => "شاشة تحديث الأسعار من Excel",
             FinanceViewModel => "شاشة الحسابات والمالية والمصروفات",
             StaffViewModel => "شاشة الموظفين والورديات",

@@ -42,7 +42,21 @@ namespace ePrescriptions.App.Views
                     {
                         tb.Focus();
                         tb.SelectAll();
-                    }
+                }
+            }
+        }
+
+        protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+        {
+            base.OnPreviewKeyDown(e);
+            if (e.Key == System.Windows.Input.Key.F4)
+            {
+                if (DataContext is ViewModels.SalesViewModel vm)
+                {
+                    vm.OpenItemSearch();
+                    SearchInputBox?.Focus();
+                    SearchInputBox?.SelectAll();
+                    e.Handled = true;
                 }
             }
         }

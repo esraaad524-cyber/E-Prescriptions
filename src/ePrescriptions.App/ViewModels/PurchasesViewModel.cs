@@ -271,10 +271,56 @@ namespace ePrescriptions.App.ViewModels
         public IRelayCommand SaveInvoiceCommand { get; }
         public IRelayCommand UndoLastInvoiceCommand { get; }
         public IRelayCommand<PurchaseItemRow> RemoveCartItemCommand { get; }
+        public IRelayCommand RemoveSelectedItemCommand { get; }
         public IRelayCommand AddItemToCartCommand { get; }
         public IRelayCommand BarcodeEnterCommand { get; }
         public IRelayCommand AddSupplierCommand { get; }
         public IRelayCommand PaySupplierVoucherCommand { get; }
+        public IRelayCommand OpenItemSearchCommand { get; }
+        public IRelayCommand CloseSearchPopupCommand { get; }
+        public IRelayCommand<Item> SelectSearchResultCommand { get; }
+        public IRelayCommand PreviousPurchaseInvoiceCommand { get; }
+        public IRelayCommand NextPurchaseInvoiceCommand { get; }
+        public IRelayCommand OpenPurchaseHistoryCommand { get; }
+        public IRelayCommand ClosePurchaseHistoryCommand { get; }
+        public IRelayCommand<PurchaseInvoice> LoadSpecificPurchaseInvoiceCommand { get; }
+
+        private PurchaseItemRow? _selectedCartItem;
+        public PurchaseItemRow? SelectedCartItem
+        {
+            get => _selectedCartItem;
+            set => SetProperty(ref _selectedCartItem, value);
+        }
+
+        private bool _isSearchPopupOpen;
+        public bool IsSearchPopupOpen
+        {
+            get => _isSearchPopupOpen;
+            set => SetProperty(ref _isSearchPopupOpen, value);
+        }
+
+        private bool _isPurchaseHistoryOpen;
+        public bool IsPurchaseHistoryOpen
+        {
+            get => _isPurchaseHistoryOpen;
+            set => SetProperty(ref _isPurchaseHistoryOpen, value);
+        }
+
+        private bool _isViewingHistoricalInvoice;
+        public bool IsViewingHistoricalInvoice
+        {
+            get => _isViewingHistoricalInvoice;
+            set => SetProperty(ref _isViewingHistoricalInvoice, value);
+        }
+
+        private string _historicalInvoiceStatusText = string.Empty;
+        public string HistoricalInvoiceStatusText
+        {
+            get => _historicalInvoiceStatusText;
+            set => SetProperty(ref _historicalInvoiceStatusText, value);
+        }
+
+        public ObservableCollection<PurchaseInvoice> RecentPurchaseInvoices { get; } = new();
 
         private readonly Data.Repositories.OwnerAuditLogRepository? _ownerAuditLogRepository;
         private readonly Data.Repositories.StaffAuditLogRepository? _staffAuditLogRepository;
@@ -316,9 +362,26 @@ namespace ePrescriptions.App.ViewModels
                     RecalculateTotals();
                 }
             });
+            RemoveSelectedItemCommand = new RelayCommand(RemoveSelectedItem);
             AddSupplierCommand = new RelayCommand(AddSupplier);
             PaySupplierVoucherCommand = new RelayCommand(PaySupplierVoucher);
             UndoLastInvoiceCommand = new RelayCommand(UndoLastInvoice);
+
+            OpenItemSearchCommand = new RelayCommand(OpenItemSearch);
+            CloseSearchPopupCommand = new RelayCommand(() => IsSearchPopupOpen = false);
+            SelectSearchResultCommand = new RelayCommand<Item>(SelectSearchResult);
+            PreviousPurchaseInvoiceCommand = new RelayCommand(LoadPreviousPurchaseInvoice);
+            NextPurchaseInvoiceCommand = new RelayCommand(LoadNextPurchaseInvoice);
+            OpenPurchaseHistoryCommand = new RelayCommand(OpenPurchaseHistory);
+            ClosePurchaseHistoryCommand = new RelayCommand(() => IsPurchaseHistoryOpen = false);
+            LoadSpecificPurchaseInvoiceCommand = new RelayCommand<PurchaseInvoice>(inv =>
+            {
+                if (inv != null)
+                {
+                    LoadPurchaseInvoice(inv);
+                    IsPurchaseHistoryOpen = false;
+                }
+            });
 
             LoadData();
             StartNewInvoice();
@@ -404,6 +467,11 @@ namespace ePrescriptions.App.ViewModels
             InputQuantity = 1;
             InputCostPounds = 0;
             InputVatPercent = GetDefaultVat();
+            IsViewingHistoricalInvoice = false;
+            HistoricalInvoiceStatusText = string.Empty;
+            IsSearchPopupOpen = false;
+            IsPurchaseHistoryOpen = false;
+            SelectedCartItem = null;
 
             RecalculateTotals();
         }
@@ -422,16 +490,152 @@ namespace ePrescriptions.App.ViewModels
         private void PerformItemSearch(string query)
         {
             SearchResults.Clear();
-            if (string.IsNullOrWhiteSpace(query) || query.Length < 2) return;
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                IsSearchPopupOpen = false;
+                return;
+            }
 
             try
             {
-                var list = _itemRepository.Search(query, 12);
+                var list = _itemRepository.Search(query.Trim(), 25);
                 foreach (var itm in list) SearchResults.Add(itm);
+                IsSearchPopupOpen = SearchResults.Count > 0;
             }
             catch (Exception ex)
             {
                 Logger.LogException(ex, "PurchasesViewModel.PerformItemSearch");
+            }
+        }
+
+        public void OpenItemSearch()
+        {
+            SearchResults.Clear();
+            string q = (ItemSearchQuery ?? string.Empty).Trim();
+            try
+            {
+                var list = string.IsNullOrEmpty(q)
+                    ? _itemRepository.GetAllItems().Take(30).ToList()
+                    : _itemRepository.Search(q, 30);
+                foreach (var itm in list) SearchResults.Add(itm);
+                IsSearchPopupOpen = SearchResults.Count > 0;
+                if (SearchResults.Count == 0)
+                {
+                    StatusMessage = "لم يتم العثور على أي صنف مطابق للبحث";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex, "PurchasesViewModel.OpenItemSearch");
+            }
+        }
+
+        public void SelectSearchResult(Item? item)
+        {
+            if (item == null) return;
+            SelectedItem = item;
+            AddItemFromInput();
+            ItemSearchQuery = string.Empty;
+            SearchResults.Clear();
+            IsSearchPopupOpen = false;
+        }
+
+        public void RemoveSelectedItem()
+        {
+            if (SelectedCartItem != null && CartItems.Contains(SelectedCartItem))
+            {
+                CartItems.Remove(SelectedCartItem);
+                SelectedCartItem = null;
+                RecalculateTotals();
+            }
+            else if (CartItems.Count > 0)
+            {
+                CartItems.RemoveAt(CartItems.Count - 1);
+                RecalculateTotals();
+            }
+        }
+
+        public void LoadPurchaseInvoice(PurchaseInvoice invoice)
+        {
+            if (invoice == null) return;
+            var fullInv = _purchaseRepository.GetFullPurchaseInvoice(invoice.InvoiceNumber) ?? invoice;
+            InvoiceNumber = fullInv.InvoiceNumber;
+            SelectedSupplier = Suppliers.FirstOrDefault(s => s.Id == fullInv.SupplierId);
+            InvoiceDate = fullInv.InvoiceDate;
+            InvoiceNotes = fullInv.Notes ?? string.Empty;
+
+            CartItems.Clear();
+            foreach (var line in fullInv.Items)
+            {
+                var baseItem = _itemRepository.GetById(line.ItemId) ?? new Item
+                {
+                    Id = line.ItemId,
+                    Code = line.ItemCode,
+                    NameAr = line.ItemNameAr,
+                    CostPriceBoxPiastres = line.UnitCostPiastres
+                };
+                int vat = line.VatPercent ?? 0;
+                var row = new PurchaseItemRow(baseItem, vat)
+                {
+                    UnitLevel = line.UnitLevel,
+                    QuantityPurchased = line.QuantityPurchased,
+                    UnitCostRiyals = Money.FromPiastres(line.UnitCostPiastres).ToPounds(),
+                    BatchNumber = line.BatchNumber,
+                    ExpiryDate = line.ExpiryDate,
+                    VatPercent = vat
+                };
+                CartItems.Add(row);
+            }
+
+            PaidRiyals = Money.FromPiastres(fullInv.PaidPiastres).ToPounds();
+            RecalculateTotals();
+            IsViewingHistoricalInvoice = true;
+            HistoricalInvoiceStatusText = $"فاتورة مشتريات سابقة رقم [{fullInv.InvoiceNumber}] | التاريخ: {DbDate.Display(fullInv.InvoiceDate)} | المورد: {fullInv.SupplierName} | الإجمالي: {Money.FromPiastres(fullInv.TotalPiastres).ToPounds():N2} ج.م";
+            StatusMessage = $"تم استعراض فاتورة المشتريات رقم {fullInv.InvoiceNumber}";
+        }
+
+        public void LoadPreviousPurchaseInvoice()
+        {
+            string? prevNum = _purchaseRepository.GetPreviousPurchaseInvoiceNumber(InvoiceNumber);
+            if (!string.IsNullOrEmpty(prevNum))
+            {
+                var inv = _purchaseRepository.GetFullPurchaseInvoice(prevNum);
+                if (inv != null)
+                {
+                    LoadPurchaseInvoice(inv);
+                    return;
+                }
+            }
+            StatusMessage = "لا توجد فواتير مشتريات سابقة قبل هذه الفاتورة";
+        }
+
+        public void LoadNextPurchaseInvoice()
+        {
+            string? nextNum = _purchaseRepository.GetNextPurchaseInvoiceNumber(InvoiceNumber);
+            if (!string.IsNullOrEmpty(nextNum))
+            {
+                var inv = _purchaseRepository.GetFullPurchaseInvoice(nextNum);
+                if (inv != null)
+                {
+                    LoadPurchaseInvoice(inv);
+                    return;
+                }
+            }
+            StatusMessage = "أنت في أحدث فاتورة مشتريات مسجلة بالفعل";
+        }
+
+        public void OpenPurchaseHistory()
+        {
+            RecentPurchaseInvoices.Clear();
+            try
+            {
+                var list = _purchaseRepository.GetRecentPurchaseInvoices(40);
+                foreach (var inv in list) RecentPurchaseInvoices.Add(inv);
+                IsPurchaseHistoryOpen = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex, "PurchasesViewModel.OpenPurchaseHistory");
             }
         }
 

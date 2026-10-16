@@ -67,6 +67,7 @@ namespace ePrescriptions.App.ViewModels
         public IRelayCommand NavigateSupplierReturnsCommand { get; }
         public IRelayCommand NavigatePurchaseOrdersCommand { get; }
         public IRelayCommand NavigateStocktakeCommand { get; }
+        public IRelayCommand NavigateOpeningStockCommand { get; }
         public IRelayCommand NavigatePriceListImportCommand { get; }
         public IRelayCommand NavigateCustomersCommand { get; }
         public IRelayCommand NavigateFinanceCommand { get; }
@@ -104,6 +105,7 @@ namespace ePrescriptions.App.ViewModels
         public bool CanAccessZakat => CurrentUser != null && (CurrentUser.EffectivePermissions.IsCustom ? CurrentUser.EffectivePermissions.CanAccessFinance : IsAdminOrOwner);
         public bool CanAccessSettings => CurrentUser != null && (CurrentUser.EffectivePermissions.IsCustom ? CurrentUser.EffectivePermissions.CanAccessSettings : IsAdminOrOwner);
         public bool CanAccessPriceListImport => IsAdminOrOwner;
+        public bool CanAccessOpeningStock => CanAccessInventory;
 
 
         // أوامر الأمان والجلسة
@@ -115,6 +117,7 @@ namespace ePrescriptions.App.ViewModels
         public IRelayCommand OpenSalesInSeparateWindowCommand { get; }
         public IRelayCommand OpenPurchasesInSeparateWindowCommand { get; }
         public IRelayCommand OpenInventoryInSeparateWindowCommand { get; }
+        public IRelayCommand OpenOpeningStockInSeparateWindowCommand { get; }
         public IRelayCommand OpenCustomersInSeparateWindowCommand { get; }
         public IRelayCommand OpenReportsInSeparateWindowCommand { get; }
 
@@ -160,6 +163,7 @@ namespace ePrescriptions.App.ViewModels
             NavigateSupplierReturnsCommand = new RelayCommand(() => _navigationService.NavigateTo<SupplierReturnsViewModel>(), () => CanAccessPurchases);
             NavigatePurchaseOrdersCommand = new RelayCommand(() => _navigationService.NavigateTo<PurchaseOrdersViewModel>(), () => CanAccessPurchases);
             NavigateStocktakeCommand = new RelayCommand(() => _navigationService.NavigateTo<StocktakeViewModel>(), () => CanAccessInventory);
+            NavigateOpeningStockCommand = new RelayCommand(() => _navigationService.NavigateTo<OpeningStockViewModel>(), () => CanAccessOpeningStock);
             NavigatePriceListImportCommand = new RelayCommand(() => _navigationService.NavigateTo<PriceListImportViewModel>(), () => CanAccessPriceListImport);
             NavigateCustomersCommand = new RelayCommand(() => _navigationService.NavigateTo<CustomersViewModel>(), () => CanAccessCustomers);
             NavigateFinanceCommand = new RelayCommand(() => _navigationService.NavigateTo<FinanceViewModel>(), () => CanAccessFinance);
@@ -184,6 +188,7 @@ namespace ePrescriptions.App.ViewModels
             OpenSalesInSeparateWindowCommand = new RelayCommand(() => _windowManager.OpenInSeparateWindow<SalesViewModel>(), () => CanAccessSales);
             OpenPurchasesInSeparateWindowCommand = new RelayCommand(() => _windowManager.OpenInSeparateWindow<PurchasesViewModel>(), () => CanAccessPurchases);
             OpenInventoryInSeparateWindowCommand = new RelayCommand(() => _windowManager.OpenInSeparateWindow<InventoryViewModel>(), () => CanAccessInventory);
+            OpenOpeningStockInSeparateWindowCommand = new RelayCommand(() => _windowManager.OpenInSeparateWindow<OpeningStockViewModel>(), () => CanAccessOpeningStock);
             OpenCustomersInSeparateWindowCommand = new RelayCommand(() => _windowManager.OpenInSeparateWindow<CustomersViewModel>(), () => CanAccessCustomers);
             OpenReportsInSeparateWindowCommand = new RelayCommand(() => _windowManager.OpenInSeparateWindow<ReportsViewModel>(), () => CanAccessReports);
 
@@ -212,6 +217,7 @@ namespace ePrescriptions.App.ViewModels
             OnPropertyChanged(nameof(CanAccessZakat));
             OnPropertyChanged(nameof(CanAccessSettings));
             OnPropertyChanged(nameof(CanAccessPriceListImport));
+            OnPropertyChanged(nameof(CanAccessOpeningStock));
             OnPropertyChanged(nameof(HasBackupAlert));
 
             // إعادة تقييم CanExecute لكل أوامر التنقل بعد تغيّر الجلسة (دخول/خروج/قفل)
@@ -222,6 +228,7 @@ namespace ePrescriptions.App.ViewModels
             NavigateSupplierReturnsCommand.NotifyCanExecuteChanged();
             NavigatePurchaseOrdersCommand.NotifyCanExecuteChanged();
             NavigateStocktakeCommand.NotifyCanExecuteChanged();
+            NavigateOpeningStockCommand.NotifyCanExecuteChanged();
             NavigatePriceListImportCommand.NotifyCanExecuteChanged();
             NavigateCustomersCommand.NotifyCanExecuteChanged();
             NavigateReportsCommand.NotifyCanExecuteChanged();
@@ -236,6 +243,7 @@ namespace ePrescriptions.App.ViewModels
             // أوامر النوافذ المستقلة
             OpenPurchasesInSeparateWindowCommand.NotifyCanExecuteChanged();
             OpenInventoryInSeparateWindowCommand.NotifyCanExecuteChanged();
+            OpenOpeningStockInSeparateWindowCommand.NotifyCanExecuteChanged();
             OpenCustomersInSeparateWindowCommand.NotifyCanExecuteChanged();
             OpenReportsInSeparateWindowCommand.NotifyCanExecuteChanged();
 

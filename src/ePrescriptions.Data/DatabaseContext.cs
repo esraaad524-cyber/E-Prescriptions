@@ -18,7 +18,7 @@ namespace ePrescriptions.Data
         /// <summary>
         /// آخر إصدار للمخطط (عدد ملفات الـ Migrations المطبقة)
         /// </summary>
-        public const int LatestSchemaVersion = 23;
+        public const int LatestSchemaVersion = 24;
 
         private readonly string _connectionString;
         private readonly bool _isInMemory;
@@ -305,6 +305,15 @@ namespace ePrescriptions.Data
                     }
                     SetUserVersion(conn, 23);
                     Logger.LogInfo("تم تطبيق Migration 023 بنجاح.", "DatabaseContext");
+                }
+
+                if (currentVersion < 24)
+                {
+                    // تطبيق Migration 024: جداول سندات رصيد أول المدة (Opening Stock Vouchers)
+                    string script024 = ReadEmbeddedSql("024_OpeningStockVouchers.sql");
+                    ExecuteSqlScript(conn, script024);
+                    SetUserVersion(conn, 24);
+                    Logger.LogInfo("تم تطبيق Migration 024 بنجاح.", "DatabaseContext");
                 }
 
                 trans.Commit();

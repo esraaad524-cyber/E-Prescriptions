@@ -42,6 +42,8 @@ SolidCompression=yes
 OutputDir=..\dist\installer
 OutputBaseFilename=e_prescriptions_Setup_v1.0.0
 
+ChangesAssociations=yes
+
 ; متطلبات نظام التشغيل الصارمة: Windows 7 Service Pack 1 فما فوق
 MinVersion=6.1sp1
 
@@ -66,6 +68,21 @@ arabic.WelcomeLabel2=سيقوم هذا المعالج بتثبيت نظام إد
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
 
+[InstallDelete]
+; حذف كافة اختصارات سطح المكتب وقائمة البرامج القديمة لضمان تحديث كاش الأيقونة في ويندوز فورياً
+Type: files; Name: "{autodesktop}\{#MyAppName}.lnk"
+Type: files; Name: "{userdesktop}\{#MyAppName}.lnk"
+Type: files; Name: "{commondesktop}\{#MyAppName}.lnk"
+Type: files; Name: "{autodesktop}\{#MyAppDisplayName}.lnk"
+Type: files; Name: "{userdesktop}\{#MyAppDisplayName}.lnk"
+Type: files; Name: "{commondesktop}\{#MyAppDisplayName}.lnk"
+Type: files; Name: "{autodesktop}\ePrescriptions.lnk"
+Type: files; Name: "{userdesktop}\ePrescriptions.lnk"
+Type: files; Name: "{commondesktop}\ePrescriptions.lnk"
+Type: files; Name: "{group}\{#MyAppName}.lnk"
+Type: files; Name: "{group}\*.lnk"
+Type: files; Name: "{app}\app.ico"
+
 [Files]
 ; 1) الملف التنفيذي الرئيسي ومكتبات المشروع
 Source: "..\src\ePrescriptions.App\bin\Release\net48\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
@@ -84,9 +101,9 @@ Source: "redist\{#Net48RedistName}"; DestDir: "{tmp}"; Flags: dontcopy
 #endif
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
-Name: "{group}\إلغاء تثبيت {#MyAppName}"; Filename: "{uninstallexe}"; IconFilename: "{app}\app.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; IconIndex: 0
+Name: "{group}\إلغاء تثبيت {#MyAppName}"; Filename: "{uninstallexe}"; IconFilename: "{app}\app.ico"; IconIndex: 0
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; IconIndex: 0; Tasks: desktopicon
 
 [Dirs]
 ; مجلد البيانات المشترك (قاعدة البيانات والنسخ الاحتياطية والسجلات والتصدير) في ProgramData
@@ -97,6 +114,7 @@ Name: "{commonappdata}\ePrescriptions\logs"; Permissions: users-modify; Flags: u
 Name: "{commonappdata}\ePrescriptions\exports"; Permissions: users-modify; Flags: uninsneveruninstall
 
 [Run]
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden skipifdoesntexist; StatusMsg: "تحديث كاش أيقونات النظام..."
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]

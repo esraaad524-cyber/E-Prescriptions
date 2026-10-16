@@ -13,6 +13,17 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
+    <UserControl.InputBindings>
+        <KeyBinding Key="F1" Command="{Binding NewInvoiceCommand}" />
+        <KeyBinding Key="F2" Command="{Binding SaveInvoiceCommand}" />
+        <KeyBinding Key="F3" Command="{Binding PrintInvoiceCommand}" />
+        <KeyBinding Key="F4" Command="{Binding OpenItemSearchCommand}" />
+        <KeyBinding Key="Delete" Command="{Binding RemoveSelectedItemCommand}" />
+        <KeyBinding Key="F8" Command="{Binding SuspendInvoiceCommand}" />
+        <KeyBinding Key="F9" Command="{Binding ToggleReturnModeCommand}" />
+        <KeyBinding Key="F10" Command="{Binding OpenCashDrawerCommand}" />
+    </UserControl.InputBindings>
+
     <Grid Background="Transparent">
         <!-- الحاوية الرئيسية البيضاء بزوايا دائرية وظل خفيف واحد فقط -->
         <Border Background="White" CornerRadius="12" Margin="10">
@@ -62,10 +73,44 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- إشعار الحالة اللحظية -->
-                        <Border Grid.Column="2" Background="#0B3556" CornerRadius="6" Padding="12,6">
-                            <TextBlock Text="{Binding StatusMessage}" Foreground="#10B981" FontWeight="SemiBold" FontSize="12" />
-                        </Border>
+                        <!-- أزرار التنقل بين الفواتير السابقة وإشعار الحالة -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Command="{Binding PreviousInvoiceCommand}" Background="#0284C7" Foreground="White" BorderThickness="0" Padding="8,5" Margin="0,0,4,0" Cursor="Hand" ToolTip="استعراض الفاتورة السابقة">
+                                <TextBlock Text="◀ السابقة" FontWeight="Bold" FontSize="11" />
+                            </Button>
+                            <Button Command="{Binding NextInvoiceCommand}" Background="#0284C7" Foreground="White" BorderThickness="0" Padding="8,5" Margin="0,0,4,0" Cursor="Hand" ToolTip="استعراض الفاتورة التالية">
+                                <TextBlock Text="التالية ▶" FontWeight="Bold" FontSize="11" />
+                            </Button>
+                            <Button Command="{Binding OpenInvoiceHistoryCommand}" Background="#1E293B" Foreground="White" BorderThickness="0" Padding="8,5" Margin="0,0,8,0" Cursor="Hand" ToolTip="عرض سجل الفواتير السابقة">
+                                <TextBlock Text="📋 الفواتير السابقة" FontWeight="Bold" FontSize="11" />
+                            </Button>
+                            <Border Background="#0B3556" CornerRadius="6" Padding="12,6">
+                                <TextBlock Text="{Binding StatusMessage}" Foreground="#10B981" FontWeight="SemiBold" FontSize="12" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- شريط تنبيه عند استعراض فاتورة سابقة -->
+                <Border Grid.Row="0" Margin="0,50,0,0" Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="0,0,0,2" Padding="12,6"
+                        Visibility="{Binding IsViewingHistoricalInvoice, Converter={StaticResource BoolToVis}}" Panel.ZIndex="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="⚠ " FontSize="14" Foreground="#B45309" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding HistoricalInvoiceStatusText}" FontWeight="Bold" Foreground="#92400E" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Command="{Binding PrintInvoiceCommand}" Background="#0284C7" Foreground="White" BorderThickness="0" Padding="10,4" Margin="0,0,6,0" Cursor="Hand">
+                                <TextBlock Text="طباعة هذه الفاتورة" FontWeight="Bold" FontSize="11" />
+                            </Button>
+                            <Button Command="{Binding NewInvoiceCommand}" Background="#10B981" Foreground="White" BorderThickness="0" Padding="12,4" Cursor="Hand">
+                                <TextBlock Text="الرجوع لإنشاء فاتورة بيع جديدة (F1)" FontWeight="Bold" FontSize="11" />
+                            </Button>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -255,12 +300,78 @@
                                       Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,10,0" VerticalAlignment="Center" IsHitTestVisible="False" />
                             </Grid>
 
-                            <Button Grid.Column="1" Command="{Binding BarcodeEnterCommand}" Style="{StaticResource PosActionButton}" Background="#0083CB" Padding="16,8">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="{StaticResource IconBarcode}" Fill="White" Width="16" Height="16" Stretch="Uniform" Margin="0,0,6,0" />
-                                    <TextBlock Text="إضافة بالباركود (Enter)" Foreground="White" />
-                                </StackPanel>
-                            </Button>
+                            <!-- قائمة نتائج البحث اللحظي / F4 -->
+                            <Popup IsOpen="{Binding IsSearchPopupOpen, Mode=TwoWay}"
+                                   PlacementTarget="{Binding ElementName=SearchInputBox}"
+                                   Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="700">
+                                <Border Background="White" BorderBrush="#0083CB" BorderThickness="2" CornerRadius="8"
+                                        MaxHeight="320" Padding="8" Effect="{StaticResource CardShadow}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+                                        <Grid Grid.Row="0" Margin="4,2,4,8">
+                                            <TextBlock Text="نتائج البحث - اضغط على الصنف لإضافته مباشرة للفاتورة:" Foreground="#0B2A45" FontWeight="Bold" FontSize="12" />
+                                            <Button Command="{Binding CloseSearchPopupCommand}" Content="✕ إغلاق" HorizontalAlignment="Left" Background="Transparent" BorderThickness="0" Foreground="#DC2626" Cursor="Hand" FontWeight="Bold" />
+                                        </Grid>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding SearchResults}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Command="{Binding DataContext.SelectSearchResultCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0"
+                                                            HorizontalContentAlignment="Stretch" Padding="8,6" Cursor="Hand">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="2.5*" />
+                                                                <ColumnDefinition Width="1.5*" />
+                                                                <ColumnDefinition Width="1.2*" />
+                                                                <ColumnDefinition Width="1.2*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <TextBlock Text="{Binding NameAr}" FontWeight="Bold" Foreground="#0F172A" FontSize="13" />
+                                                                <TextBlock Text="{Binding ActiveIngredient}" Foreground="#64748B" FontSize="11" />
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Barcode}" Foreground="#64748B" FontSize="11" VerticalAlignment="Center" />
+                                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding PriceBoxPounds, StringFormat='{}{0:N2} ج.م'}" FontWeight="Bold" Foreground="#0284C7" FontSize="12" />
+                                                                <TextBlock Text="سعر العلبة" Foreground="#94A3B8" FontSize="9" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding FormattedStockDisplay}" FontWeight="SemiBold" Foreground="#16A34A" FontSize="11" />
+                                                                <TextBlock Text="المتاح بالمخزن" Foreground="#94A3B8" FontSize="9" />
+                                                            </StackPanel>
+                                                            <Border Grid.Column="4" Background="#E0F2FE" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                                                <TextBlock Text="+ إضافة" Foreground="#0284C7" FontWeight="Bold" FontSize="11" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Grid>
+                                </Border>
+                            </Popup>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Command="{Binding OpenItemSearchCommand}" Style="{StaticResource PosActionButton}" Background="#10B981" Padding="14,8" Margin="0,0,6,0" ToolTip="بحث يدوي عن صنف واختياره (F4)">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Background="#047857" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
+                                            <TextBlock Text="F4" Foreground="White" FontSize="11" FontWeight="Bold" />
+                                        </Border>
+                                        <TextBlock Text="بحث عن صنف" Foreground="White" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Command="{Binding BarcodeEnterCommand}" Style="{StaticResource PosActionButton}" Background="#0083CB" Padding="16,8">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconBarcode}" Fill="White" Width="16" Height="16" Stretch="Uniform" Margin="0,0,6,0" />
+                                        <TextBlock Text="إضافة بالباركود (Enter)" Foreground="White" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
                         </Grid>
 
                         <!-- شريط الأزرار السريعة للأصناف الأكثر مبيعاً -->
@@ -296,6 +407,7 @@
                 <!-- 4) جدول بنود الفاتورة الديناميكي (DataGrid مع Virtualization) -->
                 <DataGrid Grid.Row="3"
                           ItemsSource="{Binding CartItems}"
+                          SelectedItem="{Binding SelectedCartItem, Mode=TwoWay}"
                           Style="{StaticResource AppFastDataGrid}"
                           Margin="10,8">
                     <DataGrid.Columns>
@@ -545,6 +657,47 @@
                                 </StackPanel>
                             </Button>
 
+                            <!-- F4: بحث يدوي عن صنف -->
+                            <Button Command="{Binding OpenItemSearchCommand}" Style="{StaticResource PosActionButton}" Background="#059669" Margin="4,2" ToolTip="البحث اليدوي عن صنف وإضافته للفاتورة (F4)">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Background="#065F46" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
+                                        <TextBlock Text="F4" Foreground="White" FontSize="11" FontWeight="Bold" />
+                                    </Border>
+                                    <TextBlock Text="بحث عن صنف" Foreground="White" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Delete: حذف الصنف المحدد -->
+                            <Button Command="{Binding RemoveSelectedItemCommand}" Style="{StaticResource PosActionButton}" Background="#EF4444" Margin="4,2" ToolTip="حذف الصنف المحدد حالياً من الفاتورة (زر Delete)">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Background="#B91C1C" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
+                                        <TextBlock Text="Del" Foreground="White" FontSize="11" FontWeight="Bold" />
+                                    </Border>
+                                    <TextBlock Text="حذف الصنف" Foreground="White" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- ◀ الفاتورة السابقة -->
+                            <Button Command="{Binding PreviousInvoiceCommand}" Style="{StaticResource PosActionButton}" Background="#0284C7" Margin="4,2" ToolTip="استعراض الفاتورة السابقة">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="◀ السابقة" Foreground="White" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- التالية ▶ -->
+                            <Button Command="{Binding NextInvoiceCommand}" Style="{StaticResource PosActionButton}" Background="#0284C7" Margin="4,2" ToolTip="استعراض الفاتورة التالية">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="التالية ▶" Foreground="White" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 📋 سجل الفواتير السابقة -->
+                            <Button Command="{Binding OpenInvoiceHistoryCommand}" Style="{StaticResource PosActionButton}" Background="#334155" Margin="4,2" ToolTip="عرض سجل الفواتير السابقة واستعراضها">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📋 الفواتير السابقة" Foreground="White" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
                             <!-- F8: تعليق الفاتورة -->
                             <Button Command="{Binding SuspendInvoiceCommand}" Style="{StaticResource PosActionButton}" Background="#F59E0B" Margin="4,2">
                                 <StackPanel Orientation="Horizontal">
@@ -588,6 +741,45 @@
                     </Grid>
                 </Border>
             </Grid>
+        </Border>
+
+        <!-- نافذة منبثقة لعرض سجل الفواتير السابقة -->
+        <Border Background="#7F000000" Visibility="{Binding IsInvoiceHistoryOpen, Converter={StaticResource BoolToVis}}" Panel.ZIndex="100">
+            <Border Background="White" CornerRadius="12" Width="900" Height="520" Padding="18" HorizontalAlignment="Center" VerticalAlignment="Center" Effect="{StaticResource CardShadow}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="📋 سجل الفواتير السابقة - اختر فاتورة لاستعراض كامل بياناتها وبنودها:" FontWeight="Bold" FontSize="16" Foreground="#0B2A45" />
+                        <Button Command="{Binding CloseInvoiceHistoryCommand}" Content="✕ إغلاق" HorizontalAlignment="Left" Background="Transparent" BorderThickness="0" Foreground="#DC2626" FontWeight="Bold" FontSize="13" Cursor="Hand" />
+                    </Grid>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding RecentInvoices}" Style="{StaticResource AppFastDataGrid}" AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="رقم الفاتورة" Binding="{Binding InvoiceNumber}" Width="120" FontWeight="Bold" />
+                            <DataGridTextColumn Header="النوع" Binding="{Binding Type}" Width="75" />
+                            <DataGridTextColumn Header="التاريخ" Binding="{Binding Date, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="135" />
+                            <DataGridTextColumn Header="اسم العميل" Binding="{Binding CustomerName}" Width="*" />
+                            <DataGridTextColumn Header="طريقة الدفع" Binding="{Binding PaymentMethod}" Width="95" />
+                            <DataGridTextColumn Header="الإجمالي (ج.م)" Binding="{Binding TotalPounds, StringFormat='{}{0:N2}'}" Width="105" FontWeight="Bold" />
+                            <DataGridTextColumn Header="الحالة" Binding="{Binding Status}" Width="80" />
+                            <DataGridTemplateColumn Header="استعراض" Width="95">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.LoadSpecificInvoiceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" Content="استعراض" Background="#0284C7" Foreground="White" BorderThickness="0" Padding="10,4" Cursor="Hand" FontWeight="Bold" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,12,0,0">
+                        <Button Command="{Binding CloseInvoiceHistoryCommand}" Content="إغلاق" Style="{StaticResource PosSecondaryButton}" Padding="20,6" />
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Border>
     </Grid>
 </UserControl>

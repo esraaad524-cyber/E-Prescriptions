@@ -242,5 +242,31 @@ namespace ePrescriptions.App.ViewModels
             OnPropertyChanged(nameof(FormattedTotal));
             OnPropertyChanged(nameof(VatRateDisplay));
         }
+
+        /// <summary>
+        /// إنشاء صف عرض لبند من فاتورة سابقة
+        /// </summary>
+        public static SalesItemRow FromHistoricalItem(InvoiceItem item, Item? baseItem = null)
+        {
+            var fallbackItem = baseItem ?? new Item
+            {
+                Id = item.ItemId,
+                Code = item.ItemCode,
+                NameAr = item.ItemNameAr,
+                Barcode = item.ItemCode
+            };
+            var row = new SalesItemRow(fallbackItem, PriceCategory.Retail, item.VatPercent)
+            {
+                SelectedUnitLevel = item.UnitLevel,
+                Quantity = item.QuantitySold,
+                UnitPricePiastres = item.UnitPricePiastres,
+                DiscountPiastres = item.DiscountPiastres,
+                BatchNumber = string.IsNullOrWhiteSpace(item.BatchNumber) ? "-" : item.BatchNumber,
+                ExpiryDate = item.ExpiryDate,
+                BatchId = item.BatchId
+            };
+            row.Recalculate();
+            return row;
+        }
     }
 }

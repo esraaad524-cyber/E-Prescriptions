@@ -472,5 +472,21 @@ _(فاضية لحد دلوقتي: بتتكتب لما صاحب المشروع ي
 - `SalesView.xaml`: إعادة ترتيب جدول بنود المبيعات بحيث يحظى "اسم الصنف الدوائي والمادة الفعالة" بأكبر مساحة مرنة (`Width="4*"`).
 - `Domain/Enums/DomainEnums.cs` و `Domain/Helpers/UnitBreakdownHelper.cs` و `Domain/Entities/ItemAndInventoryEntities.cs` و `App/ViewModels/SalesItemRow.cs` و `SalesView.xaml` و `PurchasesView.xaml`: توسيع قائمة الوحدات لتشمل (علبة، شريط، قرص، أمبول، كيس، وحدة) مع حسابات التسعير والتجزئة الدقيقة في المبيعات والمشتريات.
 
+### ✅ ميزة جديدة: شاشة ونظام "رصيد أول المدة" (بضاعة أول المدة) | تاريخ: 2026-10-16
+الملفات المضافة والمعدّلة:
+- `Domain/Entities/OpeningStockEntities.cs`: كيانات `OpeningStockVoucher` و `OpeningStockVoucherLine` مع حسابات التجزئة والتكلفة والبيع وهوامش الربح.
+- `Data/Migrations/024_OpeningStockVouchers.sql`: إنشاء جدولي `OpeningStockVouchers` و `OpeningStockVoucherLines` مع الفهارس.
+- `Data/DatabaseContext.cs`: ترقية `LatestSchemaVersion = 24` وإضافة تطبيق Migration 024.
+- `Data/Repositories/JournalPosting.cs`: إضافة حساب `OpeningBalanceEquity` ("رأس المال / رصيد افتتاحي") للقيود الآلية المزدوجة.
+- `Data/Repositories/OpeningStockRepository.cs`: مستودع حفظ سندات رصيد أول المدة، إنشاء الأصناف الجديدة تلقائياً، إدراج التشغيلات واستيعاب الرصيد السالب، تحديث الأرصدة وتسجيل القيود المحاسبية وسجلات التدقيق داخل Transaction آمنة.
+- `App/Services/ExcelExportService.cs`: إضافة دوال تصدير سند رصيد أول المدة إلى Excel وتوليد نموذج استيراد فارغ.
+- `App/ViewModels/OpeningStockViewModel.cs`: نموذج عرض متكامل يدعم المسح بالباركود، البحث بـ F4، إضافة أصناف جديدة على الطاير، إدخال العلب والأشرطة والأقراص، استيراد/تصدير Excel، استعراض السندات السابقة، وبطاقات المؤشرات المالية الفورية.
+- `App/Views/OpeningStockView.xaml` و `.xaml.cs`: واجهة مستخدم متناسقة ومصممة بعناية مع جدول تفصيلي، كروت إحصائيات، ومربعات حوار منسدلة.
+- `App/Resources/Icons.xaml`: إضافة أيقونة فيكتور جديدة `IconOpeningStock`.
+- `App/MainWindow.xaml` و `ViewModels/MainViewModel.cs`: إضافة زر التنقل للشريط الجانبي، صلاحيات الوصول، ودعم النوافذ المستقلة.
+- `App/Services/WindowManager.cs` و `App.xaml.cs`: تسجيل مستودع ونموذج العرض في DI وربط عنوان النافذة.
+- `tests/ePrescriptions.Tests/OpeningStockTests.cs`: حزمة اختبارات شاملة تغطي حسابات الكميات والتكلفة والبيع، حفظ السندات للأصناف الموجودة والجديدة، قيود اليومية، وتسلسل الأرقام والصلاحيات.
+ملخص: إتاحة إدخال وحصر المخزون الافتتاحي بالكامل قبل بدء العمل الفعلي بالصيدلية مع دعم الاستيراد من Excel والإدخال السريع بالباركود.
+
 ## الخطوة التالية: خطوة 48 — README.md نهائي شامل (متطلبات التشغيل، التثبيت الأول، بيانات الدخول لكل دور، النسخ الاحتياطي اليدوي، أي خطوة يدوية بعد أول تشغيل).
 

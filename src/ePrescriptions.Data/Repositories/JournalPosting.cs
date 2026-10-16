@@ -19,6 +19,7 @@ namespace ePrescriptions.Data.Repositories
         public const string SalesReturns = "مردودات المبيعات";
         public const string VatPayable = "ضريبة القيمة المضافة";
         public const string InventoryLoss = "خسائر وتالف المخزون";
+        public const string OpeningBalanceEquity = "رأس المال / رصيد افتتاحي";
     }
 
     /// <summary>

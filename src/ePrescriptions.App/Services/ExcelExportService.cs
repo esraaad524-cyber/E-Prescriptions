@@ -16,6 +16,8 @@ namespace ePrescriptions.App.Services
         string ExportExpiryReport(List<ExpiryReportRow> expiries, string pharmacyName);
         string ExportInventoryValuationReport(InventoryValuationSummary valuation, string pharmacyName);
         string ExportCashierShiftsReport(List<CashierShiftSummaryRow> shifts, List<CashierDiscrepancySummary> summaries, DateTime from, DateTime to, string pharmacyName);
+        string ExportOpeningStockVoucher(OpeningStockVoucher voucher, string pharmacyName);
+        string ExportOpeningStockTemplate();
 
         // خطوة 28: نسخ غير متزامنة (على خيط خلفي). المستدعي بيسلّم نسخة من البيانات مش مجموعات مربوطة بالواجهة.
         Task<string> ExportSalesReportAsync(List<SalesReportRow> sales, SalesPeriodSummary summary, DateTime from, DateTime to, string pharmacyName);
@@ -24,6 +26,7 @@ namespace ePrescriptions.App.Services
         Task<string> ExportExpiryReportAsync(List<ExpiryReportRow> expiries, string pharmacyName);
         Task<string> ExportInventoryValuationReportAsync(InventoryValuationSummary valuation, string pharmacyName);
         Task<string> ExportCashierShiftsReportAsync(List<CashierShiftSummaryRow> shifts, List<CashierDiscrepancySummary> summaries, DateTime from, DateTime to, string pharmacyName);
+        Task<string> ExportOpeningStockVoucherAsync(OpeningStockVoucher voucher, string pharmacyName);
     }
 
     public class ExcelExportService : IExcelExportService
@@ -533,6 +536,153 @@ namespace ePrescriptions.App.Services
 
             wsSum.Columns().AdjustToContents();
 
+            workbook.SaveAs(filePath);
+            return filePath;
+        }
+
+        public Task<string> ExportOpeningStockVoucherAsync(OpeningStockVoucher voucher, string pharmacyName)
+            => Task.Run(() => ExportOpeningStockVoucher(voucher, pharmacyName));
+
+        public string ExportOpeningStockVoucher(OpeningStockVoucher voucher, string pharmacyName)
+        {
+            string fileName = $"سند_رصيد_أول_المدة_{voucher.VoucherNumber}_{DbDate.Stamp(DateTime.Now)}.xlsx";
+            string filePath = Path.Combine(GetExportDirectory(), fileName);
+
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("رصيد أول المدة");
+            ws.RightToLeft = true;
+
+            // العنوان الرئيسي
+            ws.Cell(1, 1).Value = pharmacyName;
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 16;
+            ws.Range(1, 1, 1, 12).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(2, 1).Value = $"سند حصر رصيد أول المدة - رقم: {voucher.VoucherNumber} | التاريخ: {voucher.VoucherDate:yyyy-MM-dd}";
+            ws.Cell(2, 1).Style.Font.Bold = true;
+            ws.Cell(2, 1).Style.Font.FontSize = 12;
+            ws.Range(2, 1, 2, 12).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            // كروت الإجماليات
+            ws.Cell(4, 1).Value = "عدد الأصناف:";
+            ws.Cell(4, 2).Value = voucher.TotalItemsCount;
+            ws.Cell(4, 4).Value = "إجمالي الوحدات:";
+            ws.Cell(4, 5).Value = voucher.TotalSmallestUnits;
+            ws.Cell(4, 7).Value = "إجمالي التكلفة:";
+            ws.Cell(4, 8).Value = (double)voucher.TotalCostPounds;
+            ws.Cell(4, 8).Style.NumberFormat.Format = "#,##0.00";
+            ws.Cell(4, 10).Value = "إجمالي سعر الجمهور:";
+            ws.Cell(4, 11).Value = (double)voucher.TotalRetailPounds;
+            ws.Cell(4, 11).Style.NumberFormat.Format = "#,##0.00";
+
+            for (int col = 1; col <= 11; col += 3)
+            {
+                ws.Cell(4, col).Style.Font.Bold = true;
+                ws.Cell(4, col).Style.Fill.BackgroundColor = XLColor.FromHtml("#E2E8F0");
+            }
+
+            // ترويسة الجدول
+            string[] headers = new[]
+            {
+                "م", "كود الصنف", "الباركود", "اسم الصنف الدوائي", "المادة الفعالة",
+                "رقم التشغيلة", "تاريخ الصلاحية", "الكمية بالعلب", "أشرطة", "أقراص/وحدات",
+                "إجمالي الوحدات", "سعر التكلفة (علبة)", "إجمالي التكلفة", "سعر البيع (علبة)", "إجمالي البيع"
+            };
+
+            int headerRow = 6;
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = ws.Cell(headerRow, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#0083CB");
+                cell.Style.Font.FontColor = XLColor.White;
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            }
+
+            int dataRow = 7;
+            int idx = 1;
+            foreach (var line in voucher.Lines)
+            {
+                ws.Cell(dataRow, 1).Value = idx++;
+                ws.Cell(dataRow, 2).Value = line.ItemCode;
+                ws.Cell(dataRow, 3).Value = line.ItemBarcode;
+                ws.Cell(dataRow, 4).Value = line.ItemNameAr;
+                ws.Cell(dataRow, 5).Value = line.ActiveIngredient;
+                ws.Cell(dataRow, 6).Value = line.BatchNumber;
+                ws.Cell(dataRow, 7).Value = line.ExpiryDate.ToString("yyyy-MM-dd");
+                ws.Cell(dataRow, 8).Value = line.QuantityBoxes;
+                ws.Cell(dataRow, 9).Value = line.QuantityStrips;
+                ws.Cell(dataRow, 10).Value = line.QuantityUnits;
+                ws.Cell(dataRow, 11).Value = line.TotalSmallestUnits;
+                ws.Cell(dataRow, 12).Value = (double)line.CostPriceBoxPounds;
+                ws.Cell(dataRow, 13).Value = (double)line.TotalCostPounds;
+                ws.Cell(dataRow, 14).Value = (double)line.RetailPriceBoxPounds;
+                ws.Cell(dataRow, 15).Value = (double)line.TotalRetailPounds;
+
+                ws.Cell(dataRow, 12).Style.NumberFormat.Format = "#,##0.00";
+                ws.Cell(dataRow, 13).Style.NumberFormat.Format = "#,##0.00";
+                ws.Cell(dataRow, 14).Style.NumberFormat.Format = "#,##0.00";
+                ws.Cell(dataRow, 15).Style.NumberFormat.Format = "#,##0.00";
+
+                for (int c = 1; c <= headers.Length; c++)
+                {
+                    ws.Cell(dataRow, c).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                }
+
+                dataRow++;
+            }
+
+            ws.Columns().AdjustToContents();
+            workbook.SaveAs(filePath);
+            return filePath;
+        }
+
+        public string ExportOpeningStockTemplate()
+        {
+            string fileName = $"نموذج_إدخال_رصيد_أول_المدة_{DbDate.Stamp(DateTime.Now)}.xlsx";
+            string filePath = Path.Combine(GetExportDirectory(), fileName);
+
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("نموذج بضاعة أول المدة");
+            ws.RightToLeft = true;
+
+            string[] headers = new[]
+            {
+                "الباركود", "اسم الصنف العربي *", "الاسم الإنجليزي", "المادة الفعالة",
+                "عدد الشرائط بالعلبة", "عدد الأقراص بالشريط", "رقم التشغيلة",
+                "تاريخ الصلاحية (yyyy-MM-dd)", "عدد العلب *", "أشرطة إضافية", "أقراص إضافية",
+                "سعر شراء العلبة (ج.م) *", "سعر بيع العلبة للجمهور (ج.م) *"
+            };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = ws.Cell(1, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#32992B");
+                cell.Style.Font.FontColor = XLColor.White;
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            }
+
+            // سطر تجريبي إرشادي
+            ws.Cell(2, 1).Value = "6221234567890";
+            ws.Cell(2, 2).Value = "أوجمنتين 1 جم 14 قرص";
+            ws.Cell(2, 3).Value = "Augmentin 1g 14 tab";
+            ws.Cell(2, 4).Value = "Amoxicillin + Clavulanic Acid";
+            ws.Cell(2, 5).Value = 2;
+            ws.Cell(2, 6).Value = 7;
+            ws.Cell(2, 7).Value = "B12345";
+            ws.Cell(2, 8).Value = "2027-12-31";
+            ws.Cell(2, 9).Value = 10;
+            ws.Cell(2, 10).Value = 0;
+            ws.Cell(2, 11).Value = 0;
+            ws.Cell(2, 12).Value = 85.50;
+            ws.Cell(2, 13).Value = 110.00;
+
+            ws.Columns().AdjustToContents();
             workbook.SaveAs(filePath);
             return filePath;
         }

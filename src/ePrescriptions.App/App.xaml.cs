@@ -155,6 +155,7 @@ namespace ePrescriptions.App
             services.AddSingleton<ReportRepository>();
             services.AddSingleton<OwnerAuditLogRepository>();
             services.AddSingleton<StaffAuditLogRepository>();
+            services.AddSingleton<OpeningStockRepository>();
 
             // Services & Export
             services.AddSingleton<IUserSessionService, UserSessionService>();
@@ -187,6 +188,7 @@ namespace ePrescriptions.App
             services.AddTransient<SupplierReturnsViewModel>();
             services.AddTransient<PurchaseOrdersViewModel>();
             services.AddTransient<StocktakeViewModel>();
+            services.AddTransient<OpeningStockViewModel>();
             services.AddTransient<PriceListImportViewModel>();
             services.AddTransient<CustomersViewModel>();
             services.AddTransient<FinanceViewModel>();

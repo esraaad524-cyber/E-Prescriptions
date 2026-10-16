@@ -7,6 +7,7 @@
         xmlns:views="clr-namespace:ePrescriptions.App.Views"
         mc:Ignorable="d"
         Title="e_prescriptions - النظام المتكامل لإدارة الصيدليات والوصفات الطبية"
+        Icon="pack://application:,,,/Resources/app.ico"
         Height="800" Width="1366"
         MinHeight="560" MinWidth="900"
         WindowState="Maximized"
@@ -39,6 +40,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:StocktakeViewModel}">
             <views:StocktakeView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:OpeningStockViewModel}">
+            <views:OpeningStockView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:PriceListImportViewModel}">
             <views:PriceListImportView />
@@ -220,6 +224,14 @@
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="{StaticResource IconInventory}" Fill="#32992B" Width="18" Height="18" Stretch="Uniform" Margin="0,0,12,0" />
                                 <TextBlock Text="الجرد بالباركود" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- رصيد أول المدة (بضاعة أول المدة) -->
+                        <RadioButton Command="{Binding NavigateOpeningStockCommand}" Style="{StaticResource SidebarNavButton}" Visibility="{Binding CanAccessOpeningStock, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconOpeningStock}" Fill="#10B981" Width="18" Height="18" Stretch="Uniform" Margin="0,0,12,0" />
+                                <TextBlock Text="رصيد أول المدة" />
                             </StackPanel>
                         </RadioButton>
 

@@ -1014,18 +1014,11 @@ namespace ePrescriptions.Data.Repositories
             using var cmd = conn.CreateCommand();
 
             string current = (currentInvoiceNumber ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(current))
-            {
-                cmd.CommandText = "SELECT InvoiceNumber FROM Invoices ORDER BY Id DESC LIMIT 1;";
-            }
-            else
-            {
-                cmd.CommandText = @"
-                    SELECT InvoiceNumber FROM Invoices 
-                    WHERE Id < (SELECT Id FROM Invoices WHERE InvoiceNumber = @n COLLATE NOCASE LIMIT 1)
-                    ORDER BY Id DESC LIMIT 1;";
-                cmd.Parameters.AddWithValue("@n", current);
-            }
+            cmd.CommandText = @"
+                SELECT InvoiceNumber FROM Invoices 
+                WHERE Id < COALESCE((SELECT Id FROM Invoices WHERE InvoiceNumber = @n COLLATE NOCASE LIMIT 1), 9223372036854775807)
+                ORDER BY Id DESC LIMIT 1;";
+            cmd.Parameters.AddWithValue("@n", current);
 
             var res = cmd.ExecuteScalar();
             return res == null || res == DBNull.Value ? null : res.ToString();
@@ -1037,13 +1030,12 @@ namespace ePrescriptions.Data.Repositories
         public string? GetNextInvoiceNumber(string currentInvoiceNumber)
         {
             string current = (currentInvoiceNumber ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(current)) return null;
 
             using var conn = _dbContext.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
                 SELECT InvoiceNumber FROM Invoices 
-                WHERE Id > (SELECT Id FROM Invoices WHERE InvoiceNumber = @n COLLATE NOCASE LIMIT 1)
+                WHERE Id > COALESCE((SELECT Id FROM Invoices WHERE InvoiceNumber = @n COLLATE NOCASE LIMIT 1), 0)
                 ORDER BY Id ASC LIMIT 1;";
             cmd.Parameters.AddWithValue("@n", current);
 
